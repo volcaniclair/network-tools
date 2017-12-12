@@ -7,6 +7,7 @@
 #set -x
 
 MODE="list"
+SSH_PORT=22
 
 declare -a ALL_OFFLOADS=( rx tx sg tso ufo gso gro lro rxvlan txvlan ntuple rxhash )
 
@@ -39,6 +40,10 @@ do
 			then
 				rm -f ${OUTPUT_FILE}
 			fi
+			shift
+			;;
+		"-p"|"--port")
+			SSH_PORT=${2}
 			shift
 			;;
 		"-u"|"--user")
