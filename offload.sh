@@ -68,7 +68,12 @@ fi
 declare -a DEVICES
 if [ ${#DEVICES[@]} -eq 0 ]
 then
-	DEVICES+=( $( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
+	if [ ${PORT} -ne 22 ]
+	then
+		DEVICES+=( $( ssh -p ${PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
+	else
+		DEVICES+=( $( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
+	fi
 fi
 
 BG_RED='\033[41m'
@@ -95,12 +100,22 @@ case ${MODE} in
 				COMMAND="${COMMAND} ${OFFLOAD} ${STATE}"
 			done
 		fi
-		echo "ssh -q ${REMOTE_USER}@${REMOTE_HOST} \"/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}\""
+		#echo "ssh -q ${REMOTE_USER}@${REMOTE_HOST} \"/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}\""
 		if [[ "${USER}" == "root" ]]
 		then
-			ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			if [ ${PORT} -ne 22 ]
+			then
+				ssh -p ${PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			else
+				ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			fi
 		else
-			ssh -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			if [ ${PORT} != 22 ]
+			then
+				ssh -p ${PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			else
+				ssh -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
+			fi
 		fi
 		;;
 	"list")
@@ -121,7 +136,12 @@ case ${MODE} in
 		do
 			if [ -z ${INPUT_FILE} ]
 			then
-				LIST=$( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
+				if [ ${PORT} -ne 22 ]
+				then
+					LIST=$( ssh -p ${PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
+				else
+					LIST=$( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
+				fi
 			else
 				LIST=$( grep ${DEVICE} ${INPUT_FILE} | awk -F";" '{ print $2 }' )
 			fi
