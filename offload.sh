@@ -11,23 +11,58 @@ SSH_PORT=22
 
 declare -a ALL_OFFLOADS=( rx tx sg tso ufo gso gro lro rxvlan txvlan ntuple rxhash )
 
-function listAllDevices {
+function allDevices {
 	REMOTE_COMMAND=""
-	ETHTOOL_COMMAND='/usr/sbin/ethtool -k'
+	if [[ "${REMOTE_USER}" != "root" ]]
+	then
+		ETHTOOL_COMMAND="sudo ${ETHTOOL_COMMAND}"
+	fi
 	for DEVICE in ${DEVICES[@]}
 	do
+		if [[ "${DEVICE}" == "lo" ]]
+		then
+			continue
+		fi
 		#echo "DEVICE: ${DEVICE}"
 		if [[ "${REMOTE_COMMAND}" != "" ]]
 		then
-			REMOTE_COMMAND="${REMOTE_COMMAND}; ${ETHTOOL_COMMAND} ${DEVICE}"
-			#echo "REMOTE_COMMAND: ${REMOTE_COMMAND}"
+			if [[ "${EXTRA_OPTIONS}" != "" ]]
+			then
+				REMOTE_COMMAND="${REMOTE_COMMAND}; ${ETHTOOL_COMMAND} ${DEVICE} ${EXTRA_OPTIONS}"
+			else
+				REMOTE_COMMAND="${REMOTE_COMMAND}; ${ETHTOOL_COMMAND} ${DEVICE}"
+			fi
 		else
-			REMOTE_COMMAND="${ETHTOOL_COMMAND} ${DEVICE}"
+			if [[ "${EXTRA_OPTIONS}" != "" ]]
+			then
+				REMOTE_COMMAND="${ETHTOOL_COMMAND} ${DEVICE} ${EXTRA_OPTIONS}"
+			else
+				REMOTE_COMMAND="${ETHTOOL_COMMAND} ${DEVICE}"
+			fi
 		fi
 	done
-	ALL_DEVICES=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "${REMOTE_COMMAND}" )
+	if [ ${CAPTURE_OUTPUT} -eq 1 ]
+	then
+		ALL_DEVICES=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "${REMOTE_COMMAND}" )
+	else
+		ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "${REMOTE_COMMAND}"
+	fi
 	#echo "ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} \"${REMOTE_COMMAND}\""
 
+}
+
+function changeAllDevices {
+	CAPTURE_OUTPUT=0
+        ETHTOOL_COMMAND='/usr/sbin/ethtool -K'
+	EXTRA_OPTIONS="${@}"
+        allDevices
+}
+
+function listAllDevices {
+	CAPTURE_OUTPUT=1
+	ETHTOOL_COMMAND='/usr/sbin/ethtool -k'
+	EXTRA_OPTIONS=""
+	allDevices
 }
 
 function outputValues {
@@ -165,13 +200,8 @@ case ${MODE} in
 				COMMAND="${COMMAND} ${OFFLOAD} ${STATE}"
 			done
 		fi
-		#echo "ssh -q ${REMOTE_USER}@${REMOTE_HOST} \"/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}\""
-		if [[ "${USER}" == "root" ]]
-		then
-			ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-		else
-			ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-		fi
+		
+		changeAllDevices ${COMMAND}
 		;;
 	"list")
 		printf "%20s" "Interface "
