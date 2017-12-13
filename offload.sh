@@ -11,6 +11,76 @@ SSH_PORT=22
 
 declare -a ALL_OFFLOADS=( rx tx sg tso ufo gso gro lro rxvlan txvlan ntuple rxhash )
 
+function listAllDevices {
+	REMOTE_COMMAND=""
+	ETHTOOL_COMMAND='/usr/sbin/ethtool -k'
+	for DEVICE in ${DEVICES[@]}
+	do
+		#echo "DEVICE: ${DEVICE}"
+		if [[ "${REMOTE_COMMAND}" != "" ]]
+		then
+			REMOTE_COMMAND="${REMOTE_COMMAND}; ${ETHTOOL_COMMAND} ${DEVICE}"
+			#echo "REMOTE_COMMAND: ${REMOTE_COMMAND}"
+		else
+			REMOTE_COMMAND="${ETHTOOL_COMMAND} ${DEVICE}"
+		fi
+	done
+	ALL_DEVICES=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "${REMOTE_COMMAND}" )
+	#echo "ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} \"${REMOTE_COMMAND}\""
+
+}
+
+function outputValues {
+	COUNT=0
+	declare -a UNKNOWN
+	for ITEM in ${ALL_OFFLOADS[@]}
+	do
+		case ${CURRENT_STATE[${ITEM}]} in
+			"on")
+				echo -en "${BG_GREEN}"
+				printf "%6s" " "
+				echo -en "${NC}"
+				;;
+			"on[fixed]")
+				echo -en "${BG_GREEN}"
+				printf "%6s" "F"
+				echo -en "${NC}"
+				;;
+			"on[requestedon]")
+				echo -en "${BG_GREEN}"
+				printf "%6s" "R: ON"
+				echo -en "${NC}"
+				;;
+			"off")
+				echo -en "${BG_RED}"
+				printf "%6s" " "
+				echo -en "${NC}"
+				;;
+			"off[fixed]")
+				echo -en "${BG_RED}"
+				printf "%6s" "F"
+				echo -en "${NC}"
+				;;
+			"off[requestedon]")
+				echo -en "${BG_RED}"
+				printf "%6s" "R: ON"
+				echo -en "${NC}"
+				;;
+			*)
+				printf "%6s" "?"
+				UNKNOWN+=( ${CURRENT_STATE[${ITEM}]} )
+				;;
+		esac
+		(( COUNT+=1 ))
+		if [ ${COUNT} -lt ${#ALL_OFFLOADS[@]} ]
+		then
+			echo -en " "
+		else
+			echo
+		fi
+	done	
+}
+
 while [ ${#} -gt 0 ]
 do
 	case ${1} in
@@ -117,26 +187,22 @@ case ${MODE} in
 				echo
 			fi
 		done
-		for DEVICE in ${DEVICES[@]}
+		listAllDevices
+		IFS=$'\n'
+		for LINE in ${ALL_DEVICES}
 		do
-			if [ -z ${INPUT_FILE} ]
+			if [[ "${LINE}" =~ 'Features for' ]]
 			then
-				LIST=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
-			else
-				LIST=$( grep ${DEVICE} ${INPUT_FILE} | awk -F";" '{ print $2 }' )
-			fi
-			declare -A CURRENT_STATE=()
-			printf "%20s" "${DEVICE} "
-			
-			IFS=$'\n'
-			for ITEM in ${LIST}
-			do
-				if [ ! -z ${OUTPUT_FILE} ]
+				if [ ${#CURRENT_STATE[@]} -gt 0 ]
 				then
-					echo "${DEVICE};${ITEM}" >> ${OUTPUT_FILE}
+					outputValues
 				fi
-				NAME=$( echo "${ITEM}" | awk -F":" '{ print $1 }' | sed -e 's/ //g' )
-				STATE=$( echo "${ITEM}" | awk -F":" '{ print $2 }' | sed -e 's/ //g' )
+				DEVICE=$( echo ${LINE} | awk -F" " '{ print $NF }' | sed -e 's/:$//' )
+				printf "%20s" "${DEVICE} "
+				declare -A CURRENT_STATE=()
+			else
+				NAME=$( echo "${LINE}" | awk -F":" '{ print $1 }' | sed -e 's/ //g' )
+				STATE=$( echo "${LINE}" | awk -F":" '{ print $2 }' | sed -e 's/ //g' )
 				case ${NAME} in
 					"rx-checksumming")
 						CURRENT_STATE+=( ["rx"]="${STATE}" )
@@ -175,57 +241,9 @@ case ${MODE} in
 						CURRENT_STATE+=( ["rxhash"]="${STATE}" )
 						;;
 				esac
-			done
-
-			COUNT=0
-			declare -a UNKNOWN
-			for ITEM in ${ALL_OFFLOADS[@]}
-			do
-				case ${CURRENT_STATE[${ITEM}]} in
-					"on")
-						echo -en "${BG_GREEN}"
-						printf "%6s" " "
-						echo -en "${NC}"
-						;;
-					"on[fixed]")
-						echo -en "${BG_GREEN}"
-						printf "%6s" "F"
-						echo -en "${NC}"
-						;;
-					"on[requestedon]")
-						echo -en "${BG_GREEN}"
-						printf "%6s" "R: ON"
-						echo -en "${NC}"
-						;;
-					"off")
-						echo -en "${BG_RED}"
-						printf "%6s" " "
-						echo -en "${NC}"
-						;;
-					"off[fixed]")
-						echo -en "${BG_RED}"
-						printf "%6s" "F"
-						echo -en "${NC}"
-						;;
-					"off[requestedon]")
-						echo -en "${BG_RED}"
-						printf "%6s" "R: ON"
-						echo -en "${NC}"
-						;;
-					*)
-						printf "%6s" "?"
-						UNKNOWN+=( ${CURRENT_STATE[${ITEM}]} )
-						;;
-				esac
-				(( COUNT+=1 ))
-				if [ ${COUNT} -lt ${#ALL_OFFLOADS[@]} ]
-				then
-					echo -en " "
-				else
-					echo
-				fi
-			done
+			fi
 		done
+		outputValues
 		;;
 esac
 
