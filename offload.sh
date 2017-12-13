@@ -68,12 +68,7 @@ fi
 declare -a DEVICES
 if [ ${#DEVICES[@]} -eq 0 ]
 then
-	if [ ${SSH_PORT} -ne 22 ]
-	then
-		DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
-	else
-		DEVICES+=( $( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
-	fi
+	DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
 fi
 
 BG_RED='\033[41m'
@@ -103,19 +98,9 @@ case ${MODE} in
 		#echo "ssh -q ${REMOTE_USER}@${REMOTE_HOST} \"/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}\""
 		if [[ "${USER}" == "root" ]]
 		then
-			if [ ${SSH_PORT} -ne 22 ]
-			then
-				ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-			else
-				ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-			fi
+			ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
 		else
-			if [ ${SSH_PORT} != 22 ]
-			then
-				ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-			else
-				ssh -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
-			fi
+			ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "sudo /usr/sbin/ethtool -K ${DEVICE} ${COMMAND}"
 		fi
 		;;
 	"list")
@@ -136,12 +121,7 @@ case ${MODE} in
 		do
 			if [ -z ${INPUT_FILE} ]
 			then
-				if [ ${SSH_PORT} -ne 22 ]
-				then
-					LIST=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
-				else
-					LIST=$( ssh -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
-				fi
+				LIST=$( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/usr/sbin/ethtool -k ${DEVICE}" )
 			else
 				LIST=$( grep ${DEVICE} ${INPUT_FILE} | awk -F";" '{ print $2 }' )
 			fi
