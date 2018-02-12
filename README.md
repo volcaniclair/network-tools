@@ -17,3 +17,15 @@ Yum based OS:
 ```
 yum install iproute ethtool
 ```
+
+Command line options:
+-c, --command
+-d, --device
+-h, --host
+-i, --input-file
+-m, --mode
+-o, --output-file
+-p, --port
+-u, --user
+
+
