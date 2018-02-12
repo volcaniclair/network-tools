@@ -171,10 +171,19 @@ fi
 
 # Get list of devices from remote host
 declare -a DEVICES
-if [ ${#DEVICES[@]} -eq 0 ]
-then
-	DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
-fi
+#if [ ${#DEVICES[@]} -eq 0 ]
+#then
+#	DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
+#fi
+
+case ${DEVICE} in
+	"all")
+		DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
+		;;
+	*)
+		DEVICES+=( ${DEVICE} )
+		;;
+esac
 
 BG_RED='\033[41m'
 BG_GREEN='\033[42m'
