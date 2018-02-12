@@ -177,7 +177,7 @@ declare -a DEVICES
 #fi
 
 case ${DEVICE} in
-	"all")
+	"all"|"")
 		DEVICES+=( $( ssh -p ${SSH_PORT} -q ${REMOTE_USER}@${REMOTE_HOST} "/sbin/ip addr | grep '^[0-9]*:' | grep -v \@ | awk -F':' '{ print \$2 }' | sed -e 's/ //g'" ) )
 		;;
 	*)
